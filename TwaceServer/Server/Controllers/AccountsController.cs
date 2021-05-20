@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,13 +19,13 @@ namespace TwaceServer.Server.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
-        ApplicationContext db;
+        ApplicationContext _context;
 
         public AccountsController(ApplicationContext context, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             _userManager = userManager;
             _roleManager = roleManager;
-            db = context;
+            _context = context;
         }
 
         [AllowAnonymous]
@@ -51,7 +52,7 @@ namespace TwaceServer.Server.Controllers
                             user.ConfirmCode = new ConfirmCode() { VerifyCode = verifyCode };
                         }
 
-                        await db.SaveChangesAsync();
+                        await _context.SaveChangesAsync();
 
                         await MailHelper.SendMailAsync(model.Login, $"Код подтверждения", verifyCode); // TODO change email and text
 
@@ -280,6 +281,37 @@ namespace TwaceServer.Server.Controllers
             catch (Exception ex)
             {
                 return new RegisterResult() { Successful = false, Error = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// Полная информация о пользователе
+        /// </summary>
+        /// <param name="userModel">Данные пользователя</param>
+        /// <returns>STATUSCODE200</returns>
+        [Authorize]
+        [HttpGet]
+        [Route("UpdateUser")]
+        public async Task<IActionResult> UpdateUser(UserModel userModel)
+        {
+            try
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(x => x.UserName == userModel.Email);
+
+                user.Name = userModel.Name;
+                user.Surname = userModel.Surname;
+                user.City = userModel.City;
+                user.Birthday = userModel.Birthday;
+                user.Points = userModel.Points;
+                user.AffiliatePoints = userModel.AffiliatePoints;
+
+                await _context.SaveChangesAsync();
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message.ToString());
             }
         }
 
